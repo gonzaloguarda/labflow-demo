@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>LabFlow — Sistema operativo para laboratorios dentales</title>
+<style>
+  /* ── Tokens (paleta validada) ─────────────────────────────────── */
+  :root{
+    color-scheme: light;
+    --surface:#f6f6f4; --surface-1:#fcfcfb; --line:#e6e5e1;
+    --ink:#0b0b0b; --ink-2:#52514e; --ink-3:#8a897f;
+    --brand:#2a78d6; --brand-ink:#1d5eae; --brand-soft:#e8f0fb;
+    --s1:#2a78d6; --s4:#eda100; --s6:#eb6834; --s5:#1baf7a;
+    --ok:#067647; --ok-bg:#e4f3ea; --warn:#9a5b00; --warn-bg:#fdf0d5; --crit:#b32020; --crit-bg:#fde5e5;
+    --r:14px; --shadow:0 1px 2px rgba(20,20,15,.05),0 8px 24px rgba(20,20,15,.06);
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--surface);}
+  button{font:inherit;cursor:pointer}
+  h1,h2,h3{margin:0;font-weight:650;letter-spacing:-.01em}
+  .num{font-variant-numeric:tabular-nums}
+
+  /* ── Topbar ───────────────────────────────────────────────────── */
+  .topbar{position:sticky;top:0;z-index:40;background:#fff;border-bottom:1px solid var(--line);}
+  .topbar-in{max-width:1280px;margin:0 auto;display:flex;align-items:center;gap:18px;padding:10px 20px;}
+  .logo{display:flex;align-items:center;gap:9px;font-weight:700;font-size:16px;letter-spacing:-.02em}
+  .logo-mark{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--brand),#7db2ec);display:grid;place-items:center;color:#fff;font-size:13px;font-weight:800}
+  .demo-chip{font-size:10.5px;font-weight:600;color:var(--ink-3);border:1px solid var(--line);border-radius:99px;padding:2px 8px;letter-spacing:.04em;text-transform:uppercase}
+  .roles{display:flex;gap:4px;margin-left:auto;background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:3px}
+  .roles button{border:0;background:transparent;border-radius:99px;padding:6px 14px;color:var(--ink-2);font-weight:550}
+  .roles button.active{background:#fff;color:var(--ink);box-shadow:var(--shadow);font-weight:650}
+  .who{display:flex;align-items:center;gap:9px}
+  .who .av{width:30px;height:30px;border-radius:99px;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:700}
+  .who small{display:block;color:var(--ink-3);font-size:11px;line-height:1.2}
+  .who b{font-size:12.5px;line-height:1.2}
+
+  .wrap{max-width:1280px;margin:0 auto;padding:22px 20px 60px}
+  .view-title{display:flex;align-items:baseline;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+  .view-title p{margin:0;color:var(--ink-2)}
+
+  /* ── Tiles ────────────────────────────────────────────────────── */
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:18px}
+  .tile{background:var(--surface-1);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px}
+  .tile .v{font-size:27px;font-weight:700;letter-spacing:-.02em}
+  .tile .l{color:var(--ink-2);font-size:12.5px;margin-top:2px}
+  .tile .d{font-size:11.5px;margin-top:6px;display:inline-flex;align-items:center;gap:4px;border-radius:99px;padding:1px 8px;font-weight:600}
+  .d.up{background:var(--ok-bg);color:var(--ok)} .d.down{background:var(--crit-bg);color:var(--crit)}
+
+  .grid2{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;align-items:start}
+  @media(max-width:960px){.grid2{grid-template-columns:1fr}}
+  .card{background:var(--surface-1);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:0 1px 2px rgba(20,20,15,.03)}
+  .card h3{font-size:14px;margin-bottom:2px}
+  .card .sub{color:var(--ink-3);font-size:12px;margin:0 0 12px}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;color:var(--ink-3);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;padding:6px 10px;border-bottom:1px solid var(--line)}
+  td{padding:8px 10px;border-bottom:1px solid #f0efeb;vertical-align:middle}
+  tr:hover td{background:#faf9f7}
+
+  .chip{display:inline-flex;align-items:center;gap:5px;border-radius:99px;padding:2px 9px;font-size:11.5px;font-weight:600}
+  .chip.ok{background:var(--ok-bg);color:var(--ok)} .chip.warn{background:var(--warn-bg);color:var(--warn)} .chip.crit{background:var(--crit-bg);color:var(--crit)}
+  .chip.neutral{background:var(--surface);color:var(--ink-2);border:1px solid var(--line)}
+  .chip.ia{background:var(--brand-soft);color:var(--brand-ink)}
+
+  /* ── Kanban ───────────────────────────────────────────────────── */
+  .kanban-bar{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+  .btn{border:1px solid var(--line);background:#fff;border-radius:9px;padding:7px 14px;font-weight:600;color:var(--ink)}
+  .btn:hover{border-color:#c9c8c2}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn.primary:hover{background:var(--brand-ink)}
+  .legend{display:flex;gap:12px;margin-left:auto;color:var(--ink-2);font-size:12px;align-items:center;flex-wrap:wrap}
+  .dot{width:9px;height:9px;border-radius:99px;display:inline-block;margin-right:5px}
+  .kanban{display:grid;grid-auto-flow:column;grid-auto-columns:236px;gap:10px;overflow-x:auto;padding-bottom:14px;align-items:start}
+  .col{background:#f1f0ed;border:1px solid var(--line);border-radius:12px;padding:8px}
+  .col-h{display:flex;justify-content:space-between;align-items:center;padding:4px 6px 8px;font-size:12.5px;font-weight:650;color:var(--ink-2)}
+  .col-h .n{background:#fff;border:1px solid var(--line);border-radius:99px;padding:0 8px;font-size:11px}
+  .col.drag-over{outline:2px dashed var(--brand);outline-offset:-2px}
+  .kcard{background:#fff;border:1px solid var(--line);border-left:4px solid var(--ok);border-radius:10px;padding:9px 10px;margin-bottom:8px;cursor:grab;box-shadow:0 1px 2px rgba(20,20,15,.04);transition:transform .15s}
+  .kcard:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
+  .kcard.w{border-left-color:var(--s4)} .kcard.c{border-left-color:#e34948}
+  .kcard .code{font:600 11px ui-monospace,Menlo,monospace;color:var(--ink-3)}
+  .kcard .pt{font-weight:650;font-size:13px;margin:1px 0}
+  .kcard .pr{color:var(--ink-2);font-size:12px}
+  .kcard .ft{display:flex;justify-content:space-between;align-items:center;margin-top:7px;font-size:11px;color:var(--ink-3)}
+  .kcard.pulse{animation:pulse .9s} @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(42,120,214,.45)}100%{box-shadow:0 0 0 12px rgba(42,120,214,0)}}
+  .kcard.back{animation:backp .9s} @keyframes backp{0%{box-shadow:0 0 0 0 rgba(227,73,72,.5)}100%{box-shadow:0 0 0 12px rgba(227,73,72,0)}}
+
+  /* ── Comercial ────────────────────────────────────────────────── */
+  .mail{display:flex;gap:10px;padding:11px;border:1px solid var(--line);border-radius:12px;background:#fff;margin-bottom:9px;cursor:pointer}
+  .mail:hover{border-color:#c9c8c2}
+  .mail.sel{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
+  .mail .from{font-weight:650;font-size:12.5px}
+  .mail .snip{color:var(--ink-2);font-size:12px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .fieldrow{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:13px}
+  .fieldrow b{font-weight:600}
+  .ladder{display:flex;flex-direction:column;gap:0;margin:10px 0}
+  .step{display:flex;gap:10px;align-items:flex-start;position:relative;padding-bottom:14px}
+  .step:before{content:"";position:absolute;left:9px;top:20px;bottom:0;width:2px;background:var(--line)}
+  .step:last-child:before{display:none}
+  .step .b{width:20px;height:20px;border-radius:99px;background:var(--ok);color:#fff;display:grid;place-items:center;font-size:11px;flex:none}
+  .step.pending .b{background:#fff;border:2px solid var(--line);color:var(--ink-3)}
+  .step.now .b{background:var(--s4)}
+  .step .t{font-size:12.5px} .step .t small{color:var(--ink-3);display:block}
+  .wa{background:#e7f6e9;border-radius:12px 12px 12px 3px;padding:9px 12px;font-size:12.5px;max-width:420px;border:1px solid #cde8d2;white-space:pre-wrap}
+  .chat{display:flex;flex-direction:column;gap:7px;max-height:330px;overflow-y:auto;padding:4px}
+  .bub{max-width:78%;padding:7px 11px;border-radius:12px;font-size:12.5px}
+  .bub.in{background:#fff;border:1px solid var(--line);border-bottom-left-radius:3px;align-self:flex-start}
+  .bub.out{background:#dcf1e3;border:1px solid #c4e5cf;border-bottom-right-radius:3px;align-self:flex-end}
+  .bub.note{background:var(--warn-bg);border:1px dashed #e5c98a;align-self:center;font-size:11.5px;color:var(--warn)}
+  .bub small{display:block;color:var(--ink-3);font-size:10px;margin-top:2px;text-align:right}
+
+  /* ── Modal / toast ────────────────────────────────────────────── */
+  .overlay{position:fixed;inset:0;background:rgba(15,15,12,.45);display:grid;place-items:center;z-index:60;padding:20px}
+  .modal{background:#fff;border-radius:18px;max-width:760px;width:100%;max-height:88vh;overflow-y:auto;padding:22px;box-shadow:0 24px 80px rgba(0,0,0,.25)}
+  .modal-h{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+  .x{border:0;background:var(--surface);border-radius:99px;width:30px;height:30px;font-size:15px}
+  .tl{border-left:2px solid var(--line);margin-left:6px;padding-left:16px;display:flex;flex-direction:column;gap:10px}
+  .ev{position:relative;font-size:12.5px}
+  .ev:before{content:"";position:absolute;left:-21.5px;top:4px;width:9px;height:9px;border-radius:99px;background:var(--brand)}
+  .ev.clin:before{background:var(--s5)} .ev.sys:before{background:var(--ink-3)} .ev.warn:before{background:var(--s6)}
+  .ev small{color:var(--ink-3)}
+  .toast-root{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:80;display:flex;flex-direction:column;gap:8px;align-items:center}
+  .toast{background:var(--ink);color:#fff;border-radius:99px;padding:9px 18px;font-size:13px;box-shadow:var(--shadow);animation:tin .25s}
+  @keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
+
+  .viewer{background:#101418;border-radius:14px;height:260px;position:relative;overflow:hidden;cursor:grab}
+  .viewer canvas{width:100%;height:100%}
+  .viewer .hint{position:absolute;bottom:8px;left:0;right:0;text-align:center;color:#9fb2c5;font-size:11px}
+  .approve-actions{display:flex;gap:10px;margin-top:14px}
+  .approve-actions .btn{flex:1;padding:11px;font-size:14px}
+  .btn.ok{background:#0a8a4a;border-color:#0a8a4a;color:#fff} .btn.ok:hover{background:#087a41}
+  .btn.chg{background:var(--warn-bg);border-color:#ecd9a8;color:var(--warn)}
+
+  footer{max-width:1280px;margin:30px auto 0;padding:0 20px;color:var(--ink-3);font-size:11.5px}
+  .subtabs{display:flex;gap:6px;margin-bottom:14px}
+  .subtabs button{border:1px solid var(--line);background:#fff;border-radius:99px;padding:6px 14px;color:var(--ink-2);font-weight:550}
+  .subtabs button.active{background:var(--ink);border-color:var(--ink);color:#fff}
+  .tooltip{position:fixed;background:var(--ink);color:#fff;font-size:11.5px;border-radius:8px;padding:5px 9px;pointer-events:none;z-index:90;white-space:nowrap}
+</style>
+</head>
+<body>
+
+<div class="topbar"><div class="topbar-in">
+  <div class="logo"><div class="logo-mark">L</div> LabFlow <span class="demo-chip">Demo</span></div>
+  <div class="roles" id="roleTabs"></div>
+  <div class="who" id="who"></div>
+</div></div>
+
+<div class="wrap" id="app"></div>
+<div class="toast-root" id="toasts"></div>
+<div id="modals"></div>
+<footer>Ambiente de demostración · datos ficticios · LabFlow — sistema operativo para laboratorios dentales</footer>
+
+<script>
+/* ═══════════ DATOS DE DEMOSTRACIÓN ═══════════ */
+const PHASES = [
+  {id:'esperando', name:'Esperando datos'},
+  {id:'recepcion', name:'Recepción'},
+  {id:'diseno', name:'Diseño'},
+  {id:'aprobacion', name:'Aprobación clínica'},
+  {id:'fresado', name:'Fresado'},
+  {id:'sinterizado', name:'Sinterizado'},
+  {id:'terminacion', name:'Terminación'},
+  {id:'control', name:'Control de calidad'},
+  {id:'despacho', name:'Despacho'},
+];
+const ROLES = [
+  {id:'gerencia', label:'Gerencia', user:'Carolina Díaz', cargo:'Gerente general', color:'#4a3aa7'},
+  {id:'produccion', label:'Producción', user:'Marco Rojas', cargo:'Jefe de producción', color:'#1baf7a'},
+  {id:'comercial', label:'Comercial', user:'Valentina Muñoz', cargo:'Ejecutiva comercial', color:'#2a78d6'},
+];
+const CLINICS = ['Clínica Los Leones','Centro Dental Alameda','Clínica Andes Salud','Odontología Vitacura','Clínica Sonrisa Sur','Centro Ñuñoa Dental'];
+const EXECS = ['Valentina M.','Josefa R.','Camila S.'];
+const PRODUCTS = [
+  ['Corona monolítica','Zirconio multicapa'],['Corona estratificada','Zirconio 4Y'],['Puente 3 piezas','Zirconio multicapa'],
+  ['Corona sobre implante','Zirconio 3Y'],['Carilla','Disilicato de litio'],['Incrustación','Disilicato de litio'],
+  ['Barra híbrida','Titanio'],['Férula de descarga','Resina'],['Provisional','PMMA'],
+];
+const NAMES = ['M. Pérez','J. González','A. Fuentes','R. Soto','C. Morales','P. Núñez','L. Castillo','F. Araya','D. Vergara','S. Rivas','T. Medina','V. Paredes','B. Alarcón','G. Pizarro','N. Salgado','K. Bustos','E. Riquelme','I. Contreras'];
+
+let seed=7; const rnd=()=>((seed=(seed*9301+49297)%233280)/233280);
+const pick=a=>a[Math.floor(rnd()*a.length)];
+const CASES=[]; let seq=4810;
+const phaseSpread=['esperando','recepcion','recepcion','diseno','diseno','diseno','aprobacion','aprobacion','aprobacion','fresado','fresado','sinterizado','sinterizado','terminacion','terminacion','control','despacho','despacho'];
+NAMES.forEach((n,i)=>{
+  const [prod,mat]=pick(PRODUCTS); const ph=phaseSpread[i];
+  const slack = ph==='esperando' ? 60 : Math.round(rnd()*90)-8;
+  const p1=11+Math.floor(rnd()*4)*10+Math.floor(rnd()*7);
+  CASES.push({
+    id:'c'+i, code:'LAB-2026-'+(seq++), patient:n, clinic:pick(CLINICS), doctor:'Dr(a). '+pick(['Rojas','Soto','Vergara','Lagos','Pinto','Herrera']),
+    product:prod, material:mat, shade:pick(['A1','A2','A3','A3.5','B2','2M2']),
+    pieces: prod.includes('Puente')? p1+'-'+(p1+2) : String(p1),
+    phase:ph, slackH:slack, exec:pick(EXECS),
+    due: 'vie 8 ago, '+(9+Math.floor(rnd()*8))+':'+pick(['00','30']),
+  });
+});
+const MAILS=[
+  {id:'m1',from:'Dra. Herrera — Odontología Vitacura',subject:'Orden: corona pieza 16',conf:96,
+   body:'Estimados, adjunto escaneo de paciente Marcela Pino para corona monolítica en pieza 16, zirconio multicapa color A2. La paciente tiene cita el viernes 8 de agosto a las 10:30. Saludos.',
+   parsed:{Paciente:'Marcela Pino',Clínica:'Odontología Vitacura',Producto:'Corona monolítica',Material:'Zirconio multicapa',Color:'A2',Piezas:'16 (FDI)',Cita:'vie 8 ago, 10:30'}},
+  {id:'m2',from:'Dr. Lagos — Clínica Andes Salud',subject:'Puente 24 al 26 urgente',conf:88,
+   body:'Junto con saludar, necesito puente de 24 a 26 en zirconio para el paciente José Aravena. Color B2. Control el miércoles 6 en la tarde.',
+   parsed:{Paciente:'José Aravena',Clínica:'Clínica Andes Salud',Producto:'Puente 3 piezas',Material:'Zirconio multicapa',Color:'B2',Piezas:'24-26 (FDI)',Cita:'mié 6 ago, 16:00'}},
+  {id:'m3',from:'recepcion@sonrisasur.cl',subject:'RV: trabajo protésico',conf:64,
+   body:'Reenvío indicación del doctor: "prótesis para la Sra. Carrasco, la vemos a fin de mes". Sin más detalle. Quedo atenta.',
+   parsed:{Paciente:'Sra. Carrasco',Clínica:'Clínica Sonrisa Sur',Producto:'(por confirmar)',Material:'(por confirmar)',Color:'—',Piezas:'—',Cita:'(por confirmar)'}},
+];
+const APPROVALS=[
+  {caseIdx:6, step:2, sentH:26},
+  {caseIdx:7, step:1, sentH:6},
+  {caseIdx:8, step:3, sentH:49},
+];
+const NORTH=[18.2,16.9,14.1,12.8,11.2,9.4,7.8,6.5,5.4,4.6,3.9,3.4];
+const WEEKS=['S1','S2','S3','S4','S5','S6','S7','S8','S9','S10','S11','S12'];
+const RETRO=[['Ajuste de contacto',9],['Color no corresponde',6],['Ajuste de oclusión',5],['Margen desajustado',3],['Cambio de indicación',2]];
+const SCORE=CLINICS.map((c,i)=>({clinic:c,cases:[38,31,27,22,17,12][i],complete:[97,92,88,95,79,84][i],appr:[3.1,4.8,5.9,2.4,11.2,7.5][i],rework:[1.2,2.1,3.4,0.9,5.8,4.1][i]}));
+
+/* ═══════════ ESTADO ═══════════ */
+const state={role:'gerencia', mailSel:'m1', comTab:'ingreso', chatSel:0, playing:null};
+const $=s=>document.querySelector(s);
+const tone=h=>h<4?'crit':h<24?'warn':'ok';
+const toneName={ok:'var(--ok)',warn:'var(--s4)',crit:'#e34948'};
+const slackTxt=h=>h<0?`${h} h · atrasado`:`${h} h holgura`;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function toast(msg){const el=document.createElement('div');el.className='toast';el.textContent=msg;$('#toasts').appendChild(el);setTimeout(()=>el.remove(),2600);}
+
+/* ═══════════ NAVEGACIÓN ═══════════ */
+function renderTabs(){
+  $('#roleTabs').innerHTML=ROLES.map(r=>`<button class="${state.role===r.id?'active':''}" onclick="setRole('${r.id}')">${r.label}</button>`).join('');
+  const r=ROLES.find(x=>x.id===state.role);
+  $('#who').innerHTML=`<div style="text-align:right"><b>${r.user}</b><small>${r.cargo}</small></div><div class="av" style="background:${r.color}">${r.user.split(' ').map(w=>w[0]).join('')}</div>`;
+}
+function setRole(id){state.role=id;render();}
+function render(){
+  renderTabs();
+  if(state.playing && state.role!=='produccion'){clearInterval(state.playing);state.playing=null;}
+  $('#app').innerHTML = state.role==='gerencia'?vGerencia():state.role==='produccion'?vProduccion():vComercial();
+  if(state.role==='gerencia') drawCharts();
+  if(state.role==='produccion') bindKanban();
+}
+
+/* ═══════════ VISTA GERENCIA ═══════════ */
+function vGerencia(){
+  const active=CASES.filter(c=>c.phase!=='despacho').length;
+  return `
+  <div class="view-title"><h1>Panel de gerencia</h1><p>Laboratorio Demo · julio 2026</p></div>
+  <div class="tiles">
+    <div class="tile"><div class="v num">3.4</div><div class="l">Toques manuales por caso</div><div class="d up">▼ 81% vs. inicio</div></div>
+    <div class="tile"><div class="v num">96.4%</div><div class="l">Entregas a tiempo</div><div class="d up">▲ 11 pts</div></div>
+    <div class="tile"><div class="v num">5.2 h</div><div class="l">Aprobación promedio del doctor</div><div class="d up">▼ desde 2.1 días</div></div>
+    <div class="tile"><div class="v num">${active}</div><div class="l">Casos activos</div><div class="d up">▲ 8% mes</div></div>
+    <div class="tile"><div class="v num">2.9%</div><div class="l">Tasa de retrocesos</div><div class="d up">▼ 1.4 pts</div></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>Métrica norte: toques manuales por caso</h3>
+      <p class="sub">Cuántas veces alguien del laboratorio intervino para que un caso avanzara · últimas 12 semanas</p>
+      <div id="lineWrap" style="position:relative"><svg id="northChart" width="100%" height="220"></svg></div>
+    </div>
+    <div class="card">
+      <h3>Retrocesos por causa</h3>
+      <p class="sub">Trimestre actual · el dato más valioso del negocio</p>
+      <div id="retroChart"></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <h3>Scorecard por clínica</h3>
+    <p class="sub">Se envía automático a cada doctor el día 1 de cada mes — la conversación comercial más incómoda, convertida en datos</p>
+    <table><thead><tr><th>Clínica</th><th class="num">Casos</th><th>Datos completos al 1er intento</th><th>Aprobación promedio</th><th>Retrocesos</th><th></th></tr></thead>
+    <tbody>${SCORE.map(s=>`<tr>
+      <td><b>${s.clinic}</b></td><td class="num">${s.cases}</td>
+      <td><span class="chip ${s.complete>=90?'ok':s.complete>=82?'warn':'crit'}">${s.complete}%</span></td>
+      <td><span class="chip ${s.appr<=5?'ok':s.appr<=9?'warn':'crit'}">${s.appr} h</span></td>
+      <td><span class="chip ${s.rework<=2?'ok':s.rework<=4?'warn':'crit'}">${s.rework}%</span></td>
+      <td style="text-align:right"><button class="btn" style="padding:4px 10px;font-size:12px" onclick="toast('Scorecard de ${s.clinic} enviado al doctor 📤')">Enviar</button></td>
+    </tr>`).join('')}</tbody></table>
+  </div>`;
+}
+
+function drawCharts(){
+  /* línea métrica norte con hover */
+  const svg=$('#northChart'); const W=svg.clientWidth||560, H=220, P={l:30,r:12,t:14,b:24};
+  const max=20, xs=i=>P.l+i*(W-P.l-P.r)/(NORTH.length-1), ys=v=>P.t+(1-v/max)*(H-P.t-P.b);
+  let grid=''; [0,5,10,15,20].forEach(v=>{grid+=`<line x1="${P.l}" x2="${W-P.r}" y1="${ys(v)}" y2="${ys(v)}" stroke="#eeede9"/><text x="${P.l-6}" y="${ys(v)+4}" text-anchor="end" font-size="10" fill="#8a897f">${v}</text>`;});
+  const pts=NORTH.map((v,i)=>[xs(i),ys(v)]);
+  const path=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+  const area=path+` L ${pts[pts.length-1][0]} ${ys(0)} L ${pts[0][0]} ${ys(0)} Z`;
+  let labels=''; [0,NORTH.length-1].forEach(i=>{labels+=`<text x="${pts[i][0]}" y="${pts[i][1]-9}" text-anchor="middle" font-size="11" font-weight="600" fill="#0b0b0b">${NORTH[i]}</text>`;});
+  let xticks=''; WEEKS.forEach((w,i)=>{ if(i%2===0||i===WEEKS.length-1) xticks+=`<text x="${xs(i)}" y="${H-6}" text-anchor="middle" font-size="10" fill="#8a897f">${w}</text>`; });
+  svg.innerHTML=`${grid}<path d="${area}" fill="rgba(42,120,214,.08)"/><path d="${path}" fill="none" stroke="var(--s1)" stroke-width="2" stroke-linecap="round"/>
+    ${pts.map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]}" r="3" fill="var(--s1)"/>`).join('')}${labels}${xticks}
+    <line id="cross" y1="${P.t}" y2="${H-P.b}" stroke="#c9c8c2" stroke-dasharray="3 3" visibility="hidden"/>`;
+  const tip=document.createElement('div');tip.className='tooltip';tip.style.display='none';document.body.appendChild(tip);
+  svg.onmousemove=e=>{const r=svg.getBoundingClientRect();const i=Math.max(0,Math.min(NORTH.length-1,Math.round((e.clientX-r.left-P.l)/((W-P.l-P.r)/(NORTH.length-1)))));
+    const c=$('#cross');c.setAttribute('x1',xs(i));c.setAttribute('x2',xs(i));c.setAttribute('visibility','visible');
+    tip.style.display='block';tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY-10)+'px';tip.textContent=`${WEEKS[i]} · ${NORTH[i]} toques/caso`;};
+  svg.onmouseleave=()=>{tip.style.display='none';$('#cross')?.setAttribute('visibility','hidden');};
+  /* barras retro (html) */
+  const mx=Math.max(...RETRO.map(r=>r[1]));
+  $('#retroChart').innerHTML=RETRO.map(([n,v])=>`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:9px" title="${n}: ${v} retrocesos">
+      <div style="width:150px;font-size:12.5px;color:var(--ink-2)">${n}</div>
+      <div style="flex:1;background:#f1f0ed;border-radius:6px;height:16px;overflow:hidden">
+        <div style="width:${v/mx*100}%;height:100%;background:var(--s1);border-radius:0 4px 4px 0"></div></div>
+      <div class="num" style="width:20px;font-weight:600;font-size:12.5px">${v}</div>
+    </div>`).join('');
+}
+
+/* ═══════════ VISTA PRODUCCIÓN (KANBAN) ═══════════ */
+function vProduccion(){
+  return `
+  <div class="view-title"><h1>Tablero de producción</h1><p>Los estados los mueven los hechos: escaneo de QR, archivo subido, aprobación del doctor</p></div>
+  <div class="kanban-bar">
+    <button class="btn primary" id="playBtn" onclick="togglePlay()">▶ Simular un día de trabajo</button>
+    <button class="btn" onclick="toast('Etiquetas QR enviadas a la impresora 🖨️')">Imprimir etiquetas QR</button>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--ok)"></span>Holgura &gt;24 h</span>
+      <span><span class="dot" style="background:var(--s4)"></span>4–24 h</span>
+      <span><span class="dot" style="background:#e34948"></span>&lt;4 h o atrasado</span>
+      <span style="color:var(--ink-3)">· color por holgura, nunca por prioridad</span>
+    </div>
+  </div>
+  <div class="kanban" id="kanban">${PHASES.map(ph=>{
+    const cards=CASES.filter(c=>c.phase===ph.id);
+    return `<div class="col" data-ph="${ph.id}">
+      <div class="col-h">${ph.name}<span class="n num">${cards.length}</span></div>
+      ${cards.map(c=>kcard(c)).join('')}</div>`;}).join('')}
+  </div>
+  <div class="grid2" style="margin-top:6px">
+    <div class="card"><h3>Casos más viejos en su fase (aging)</h3><p class="sub">Dónde se está acumulando la cola</p>
+      <table><tbody>${[...CASES].filter(c=>c.phase!=='despacho').sort((a,b)=>a.slackH-b.slackH).slice(0,5).map(c=>`
+        <tr onclick="openCase('${c.id}')" style="cursor:pointer"><td><b class="num" style="font-family:ui-monospace">${c.code}</b></td>
+        <td>${phName(c.phase)}</td><td>${c.product}</td>
+        <td><span class="chip ${tone(c.slackH)}">${slackTxt(c.slackH)}</span></td></tr>`).join('')}</tbody></table></div>
+    <div class="card"><h3>Touch time vs. tiempo de espera</h3><p class="sub">El 84% del lead time es espera — ahí vive la mejora, no en las máquinas</p>
+      <div style="display:flex;height:26px;border-radius:8px;overflow:hidden;margin:14px 0 8px;gap:2px">
+        <div style="width:16%;background:var(--s1);border-radius:6px 0 0 6px" title="Trabajo real: 16%"></div>
+        <div style="width:84%;background:#dfe9f6;border-radius:0 6px 6px 0" title="Espera: 84%"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--ink-2)"><span><span class="dot" style="background:var(--s1)"></span>Trabajo real 16%</span><span><span class="dot" style="background:#dfe9f6"></span>Espera 84%</span></div>
+    </div>
+  </div>`;
+}
+const phName=id=>PHASES.find(p=>p.id===id).name;
+function kcard(c){
+  const t=tone(c.slackH), cls=t==='warn'?'w':t==='crit'?'c':'';
+  return `<div class="kcard ${cls}" draggable="true" data-id="${c.id}" onclick="openCase('${c.id}')">
+    <div class="code">${c.code}</div><div class="pt">${c.patient}</div>
+    <div class="pr">${c.product} · pza ${c.pieces}</div>
+    <div class="ft"><span>${c.clinic.replace('Clínica ','').replace('Centro ','')}</span>
+    <span class="chip ${t}" style="font-size:10.5px">${c.slackH<0?c.slackH+' h':c.slackH+' h'}</span></div></div>`;
+}
+function bindKanban(){
+  document.querySelectorAll('.kcard').forEach(el=>{
+    el.addEventListener('dragstart',e=>{e.dataTransfer.setData('text',el.dataset.id);});
+  });
+  document.querySelectorAll('.col').forEach(col=>{
+    col.addEventListener('dragover',e=>{e.preventDefault();col.classList.add('drag-over');});
+    col.addEventListener('dragleave',()=>col.classList.remove('drag-over'));
+    col.addEventListener('drop',e=>{e.preventDefault();col.classList.remove('drag-over');
+      const c=CASES.find(x=>x.id===e.dataTransfer.getData('text'));
+      if(c&&c.phase!==col.dataset.ph){c.phase=col.dataset.ph;render();flash(c.id,'pulse');
+        toast(`${c.code} → ${phName(c.phase)} · evento registrado en el historial`);}});
+  });
+}
+function flash(id,cls){const el=document.querySelector(`.kcard[data-id="${id}"]`);if(el){el.classList.add(cls);setTimeout(()=>el.classList.remove(cls),900);}}
+function togglePlay(){
+  if(state.playing){clearInterval(state.playing);state.playing=null;$('#playBtn').textContent='▶ Simular un día de trabajo';return;}
+  $('#playBtn').textContent='⏸ Pausar simulación';
+  state.playing=setInterval(()=>{
+    const movable=CASES.filter(c=>c.phase!=='despacho'&&c.phase!=='esperando');
+    if(!movable.length)return;
+    const c=movable[Math.floor(Math.random()*movable.length)];
+    const i=PHASES.findIndex(p=>p.id===c.phase);
+    if(Math.random()<0.12 && i>2){ /* retroceso ocasional: el dato valioso */
+      c.phase=PHASES[i-1].id; render(); flash(c.id,'back');
+      toast(`↩ Retroceso ${c.code}: ajuste de contacto — registrado con causa`);
+    } else {
+      c.phase=PHASES[Math.min(i+1,PHASES.length-1)].id; render(); flash(c.id,'pulse');
+      const src=['técnico escaneó QR','diseñador subió archivo','doctor aprobó por WhatsApp','motoboy confirmó entrega'];
+      toast(`${c.code} → ${phName(c.phase)} · ${src[Math.floor(Math.random()*src.length)]}`);
+    }
+    if(state.playing) $('#playBtn').textContent='⏸ Pausar simulación';
+  },1500);
+}
+
+/* ═══════════ VISTA COMERCIAL ═══════════ */
+function vComercial(){
+  return `
+  <div class="view-title"><h1>Centro comercial</h1><p>Los datos se ordenan solos, las aprobaciones se persiguen solas</p></div>
+  <div class="subtabs">
+    ${[['ingreso','📥 Ingreso con IA'],['aprob','✅ Aprobaciones'],['wa','💬 WhatsApp'],['mios','📋 Mis casos']].map(([id,l])=>
+      `<button class="${state.comTab===id?'active':''}" onclick="state.comTab='${id}';render()">${l}</button>`).join('')}
+  </div>
+  ${state.comTab==='ingreso'?vIngreso():state.comTab==='aprob'?vAprob():state.comTab==='wa'?vWa():vMios()}`;
+}
+function vIngreso(){
+  const m=MAILS.find(x=>x.id===state.mailSel)||MAILS[0];
+  return `<div class="grid2">
+    <div>
+      <div class="card" style="margin-bottom:12px"><h3>Buzón de órdenes</h3><p class="sub">Correos y WhatsApp entrantes, leídos por la IA — la ejecutiva revisa, no transcribe</p>
+      ${MAILS.map(x=>`<div class="mail ${x.id===state.mailSel?'sel':''}" onclick="state.mailSel='${x.id}';render()">
+        <div style="flex:1"><div class="from">${x.from}</div><div class="snip">${x.body}</div></div>
+        <span class="chip ${x.conf>=75?'ia':'warn'}" style="align-self:flex-start;flex:none">IA ${x.conf}%${x.conf<75?' · revisar':''}</span>
+      </div>`).join('')}</div>
+    </div>
+    <div class="card"><h3>Extraído por la IA</h3><p class="sub">${m.conf>=75?'Confianza alta: listo para crear':'Confianza baja: va a revisión humana, nunca se descarta'}</p>
+      ${Object.entries(m.parsed).map(([k,v])=>`<div class="fieldrow"><span style="color:var(--ink-3)">${k}</span><b>${v}</b></div>`).join('')}
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="btn primary" style="flex:1" onclick="createFromMail('${m.id}')">Crear caso</button>
+        <button class="btn">Editar</button>
+      </div>
+      ${m.conf<75?'<p style="font-size:12px;color:var(--warn);margin:10px 0 0">⚠ Faltan datos → el caso entrará a "Esperando datos" y el sistema pedirá lo que falta por WhatsApp.</p>':''}
+    </div>
+  </div>`;
+}
+function createFromMail(id){
+  const m=MAILS.find(x=>x.id===id); const idx=MAILS.indexOf(m); MAILS.splice(idx,1);
+  const complete=m.conf>=75;
+  CASES.push({id:'c'+(CASES.length+99),code:'LAB-2026-'+(seq++),patient:m.parsed.Paciente,clinic:m.parsed['Clínica'],doctor:m.from.split(' — ')[0],
+    product:m.parsed.Producto,material:m.parsed.Material,shade:m.parsed.Color,pieces:(m.parsed.Piezas||'—').replace(' (FDI)',''),
+    phase:complete?'recepcion':'esperando',slackH:complete?52:70,exec:'Valentina M.',due:m.parsed.Cita||'(por confirmar)'});
+  state.mailSel=MAILS[0]?.id;
+  toast(complete?`Caso creado y asignado · entró a Recepción`:`Caso creado en "Esperando datos" · se pidió lo faltante por WhatsApp`);
+  render();
+}
+function vAprob(){
+  return `<div style="display:grid;gap:12px">${APPROVALS.map((a,ai)=>{
+    const c=CASES[a.caseIdx]; if(!c) return '';
+    const steps=[['T+0','Link con visor 3D enviado'],['T+4 h','Recordatorio simple'],['T+24 h','Mensaje con la agenda del doctor'],['T+48 h','Escala a la ejecutiva']];
+    const msg=`Su paciente ${c.patient} está agendado para el ${c.due}. Si aprueba antes de hoy a las 18:00, llegamos a tiempo. 👉 lab.flow/a/x${ai}92`;
+    return `<div class="card"><div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:space-between">
+      <div style="min-width:230px">
+        <h3 style="font-family:ui-monospace;font-size:13px">${c.code}</h3>
+        <p class="sub" style="margin-bottom:8px">${c.patient} · ${c.doctor} · ${c.clinic}<br>Esperando hace <b>${a.sentH} h</b></p>
+        <div class="ladder">${steps.map((s,i)=>`<div class="step ${i<a.step?'':i===a.step?'now pending':'pending'}">
+          <div class="b">${i<a.step?'✓':i+1}</div><div class="t"><b>${s[0]}</b> — ${s[1]}<small>${i<a.step?'enviado automáticamente':i===a.step?'programado por el sistema':''}</small></div></div>`).join('')}
+        </div>
+      </div>
+      <div style="flex:1;min-width:280px">
+        <p class="sub" style="margin-bottom:6px">Próximo mensaje (automático, WhatsApp del laboratorio):</p>
+        <div class="wa">${msg}</div>
+        <div class="approve-actions" style="max-width:420px">
+          <button class="btn" onclick="openDoctor(${a.caseIdx})">👁 Ver como doctor</button>
+          <button class="btn" onclick="toast('Mensaje enviado por WhatsApp 📤')">Enviar ahora</button>
+        </div>
+      </div>
+    </div></div>`;}).join('')}
+    <p style="color:var(--ink-3);font-size:12.5px;margin:4px 2px">Ninguna ejecutiva tiene que acordarse de perseguir una aprobación: el sistema la persigue y solo escala lo que no se resolvió.</p>
+  </div>`;
+}
+function vWa(){
+  const chats=[
+    {name:'Dra. Herrera',clinic:'Odontología Vitacura',caso:'LAB-2026-4816',msgs:[
+      ['in','Hola! Me confirman si alcanzan para el viernes?','10:02'],
+      ['out','Hola doctora 👋 Sí: el trabajo de M. Pérez está en terminación, llega el jueves en la tarde.','10:04'],
+      ['note','Nota interna (no visible para la clínica): confirmar con despacho la ruta del jueves','10:05'],
+      ['in','Perfecto, gracias!','10:11']]},
+    {name:'Dr. Lagos',clinic:'Andes Salud',caso:'LAB-2026-4817',msgs:[
+      ['out','Dr., le enviamos el diseño del puente de J. Aravena para su aprobación 👉 lab.flow/a/k202','09:12'],
+      ['in','Lo veo al mediodía','09:40']]},
+    {name:'Recepción Sonrisa Sur',clinic:'Sonrisa Sur',caso:'LAB-2026-4823',msgs:[
+      ['out','Para crear la orden de la Sra. Carrasco nos falta: tipo de prótesis, color y fecha de cita 🙏','11:20'],
+      ['in','Le pregunto al doctor y les escribo!','11:26']]},
+  ];
+  const ch=chats[state.chatSel];
+  return `<div class="grid2">
+    <div class="card" style="padding:8px">
+      ${chats.map((c,i)=>`<div class="mail ${i===state.chatSel?'sel':''}" style="margin:4px" onclick="state.chatSel=${i};render()">
+        <div style="flex:1"><div class="from">${c.name} <span class="chip neutral" style="margin-left:6px;font-family:ui-monospace;font-size:10px">${c.caso}</span></div>
+        <div class="snip">${c.msgs[c.msgs.length-1][1]}</div></div></div>`).join('')}
+      <p style="font-size:12px;color:var(--ink-3);padding:6px 10px">Un solo número del laboratorio · cada hilo cuelga de su caso, nunca de un chat suelto</p>
+    </div>
+    <div class="card"><h3>${ch.name} · <span style="color:var(--ink-3);font-weight:500">${ch.clinic}</span></h3>
+      <p class="sub">Hilo ligado al expediente <b style="font-family:ui-monospace">${ch.caso}</b></p>
+      <div class="chat">${ch.msgs.map(([t,m,h])=>`<div class="bub ${t}">${m}<small>${h}</small></div>`).join('')}</div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <input placeholder="Escribir mensaje…" style="flex:1;border:1px solid var(--line);border-radius:9px;padding:8px 12px;font:inherit">
+        <button class="btn primary" onclick="toast('Mensaje enviado 📤')">Enviar</button></div>
+    </div>
+  </div>`;
+}
+function vMios(){
+  const mine=CASES.filter(c=>c.exec==='Valentina M.'&&c.phase!=='despacho');
+  return `<div class="card"><h3>Mis casos (${mine.length})</h3><p class="sub">Cartera de Valentina · ordenados por holgura</p>
+  <table><thead><tr><th>Caso</th><th>Paciente</th><th>Clínica</th><th>Trabajo</th><th>Fase</th><th>Cita</th><th>Holgura</th></tr></thead>
+  <tbody>${mine.sort((a,b)=>a.slackH-b.slackH).map(c=>`<tr onclick="openCase('${c.id}')" style="cursor:pointer">
+    <td style="font-family:ui-monospace;font-weight:600;font-size:12px">${c.code}</td><td><b>${c.patient}</b></td><td>${c.clinic}</td>
+    <td>${c.product}</td><td>${phName(c.phase)}</td><td>${c.due}</td>
+    <td><span class="chip ${tone(c.slackH)}">${slackTxt(c.slackH)}</span></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+/* ═══════════ MODAL EXPEDIENTE ═══════════ */
+function openCase(id){
+  const c=CASES.find(x=>x.id===id); if(!c)return;
+  const hist=[
+    ['sys','Caso creado desde correo (parseo IA, confianza 96%)','lun 9:14','Sistema'],
+    ['','Caso asignado a '+c.exec+' (cartera de la clínica)','lun 9:14','Sistema'],
+    ['','Diseñador subió archivo STL — el caso avanzó solo','lun 16:40','R. Fuentes'],
+    ['clin','El doctor aprobó desde WhatsApp ✓','mar 11:05',c.doctor],
+    ['','Técnico escaneó QR: entró a '+phName(c.phase),'mié 8:52','Taller'],
+  ];
+  $('#modals').innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal">
+    <div class="modal-h"><div>
+      <h2 style="font-family:ui-monospace;font-size:15px">${c.code}</h2>
+      <p style="margin:2px 0 0;color:var(--ink-2)">${c.patient} · ${c.clinic} · ${c.doctor}</p></div>
+      <button class="x" onclick="closeModal()">✕</button></div>
+    <div class="tiles" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+      <div class="tile"><div class="l">Trabajo</div><b>${c.product}</b><div class="l">${c.material} · ${c.shade} · pza ${c.pieces}</div></div>
+      <div class="tile"><div class="l">Fase actual</div><b>${phName(c.phase)}</b><div style="margin-top:4px"><span class="chip ${tone(c.slackH)}">${slackTxt(c.slackH)}</span></div></div>
+      <div class="tile"><div class="l">Cita del paciente</div><b>${c.due}</b><div class="l">ancla inamovible</div></div>
+    </div>
+    <div class="grid2">
+      <div><h3 style="font-size:13px;margin-bottom:10px">Historial — nada se edita, todo queda</h3>
+        <div class="tl">${hist.map(([cl,tx,h,who])=>`<div class="ev ${cl}">${tx}<br><small>${h} · ${who}</small></div>`).join('')}</div></div>
+      <div><h3 style="font-size:13px;margin-bottom:10px">Adjuntos</h3>
+        ${[['diseño_'+c.pieces+'.stl','12.4 MB'],['escaneo_intraoral.stl','28.1 MB'],['foto_color.jpg','2.2 MB']].map(([f,s])=>
+          `<div class="fieldrow"><span style="font-family:ui-monospace;font-size:12px">📎 ${f}</span><span style="color:var(--ink-3)">${s}</span></div>`).join('')}
+        <h3 style="font-size:13px;margin:16px 0 8px">WhatsApp del caso</h3>
+        <div class="bub in" style="max-width:100%">¿Me confirman color A2 o A3? — ${c.doctor}</div>
+        <div class="bub out" style="max-width:100%;margin-top:6px">Confirmado ${c.shade} según foto adjunta ✓</div>
+      </div>
+    </div>
+  </div></div>`;
+}
+function closeModal(){$('#modals').innerHTML='';}
+
+/* ═══════════ MODAL DOCTOR (VISOR 3D) ═══════════ */
+let vAnim=null;
+function openDoctor(idx){
+  const c=CASES[idx];
+  $('#modals').innerHTML=`<div class="overlay" onclick="if(event.target===this)closeDoctor()"><div class="modal" style="max-width:480px">
+    <div class="modal-h"><div><h2 style="font-size:16px">Aprobación de trabajo dental</h2>
+      <p style="margin:2px 0 0;color:var(--ink-2)">${c.doctor} · ${c.clinic}</p></div>
+      <button class="x" onclick="closeDoctor()">✕</button></div>
+    <p style="font-size:13px;color:var(--ink-2);margin:0 0 10px">Paciente <b>${c.patient}</b> · ${c.product} · pieza ${c.pieces} · ${c.material} ${c.shade}</p>
+    <div class="viewer"><canvas id="cv" width="640" height="520"></canvas><div class="hint">arrastra para rotar el diseño</div></div>
+    <p style="background:#e8f2fd;border:1px solid #cfe3f8;border-radius:10px;padding:9px 12px;font-size:12.5px;margin:12px 0 0;color:#1d4f8a">
+      📅 Su paciente está agendado para el <b>${c.due}</b>. Si aprueba antes de <b>hoy 18:00</b>, llegamos a tiempo.</p>
+    <div class="approve-actions">
+      <button class="btn ok" onclick="doctorApprove(${idx})">✓ Aprobar</button>
+      <button class="btn chg" onclick="toast('Solicitud de cambios enviada — el caso volvió a Diseño con causa registrada');closeDoctor()">Solicitar cambios</button>
+    </div>
+    <p style="text-align:center;color:var(--ink-3);font-size:11px;margin:10px 0 0">Sin registro ni contraseña — un toque desde WhatsApp</p>
+  </div></div>`;
+  startViewer();
+}
+function closeDoctor(){cancelAnimationFrame(vAnim);closeModal();}
+function doctorApprove(idx){
+  const c=CASES[idx]; c.phase='fresado'; c.slackH=Math.max(c.slackH,26);
+  const ai=APPROVALS.findIndex(a=>a.caseIdx===idx); if(ai>=0)APPROVALS.splice(ai,1);
+  closeDoctor(); toast(`✓ ${c.doctor} aprobó — ${c.code} avanzó a Fresado sin que nadie del laboratorio tocara nada`);
+  render();
+}
+function startViewer(){
+  const cv=$('#cv'),ctx=cv.getContext('2d');
+  /* "corona" low-poly: perfil de revolución */
+  const prof=[[0,-1.15],[ .42,-1.05],[ .58,-.62],[ .50,-.18],[ .62,.28],[ .55,.72],[ .30,.98],[0,1.02]];
+  const SEG=26, pts=[], quads=[];
+  for(let s=0;s<SEG;s++){const a=s/SEG*Math.PI*2;
+    prof.forEach(([r,y])=>{const w=1+0.09*Math.sin(a*4);pts.push([r*w*Math.cos(a),y,r*w*Math.sin(a)]);});}
+  for(let s=0;s<SEG;s++)for(let i=0;i<prof.length-1;i++){
+    const a=s*prof.length+i,b=((s+1)%SEG)*prof.length+i;quads.push([a,a+1,b+1,b]);}
+  let rx=-0.4, ry=0.6, drag=null;
+  cv.parentElement.onmousedown=e=>{drag=[e.clientX,e.clientY];};
+  window.onmousemove=e=>{if(drag){ry+=(e.clientX-drag[0])*.008;rx+=(e.clientY-drag[1])*.008;drag=[e.clientX,e.clientY];}};
+  window.onmouseup=()=>drag=null;
+  function frame(){
+    if(!document.getElementById('cv'))return;
+    if(!drag)ry+=0.006;
+    ctx.clearRect(0,0,cv.width,cv.height);
+    const cx=cv.width/2,cy=cv.height/2+18,S=150;
+    const cosx=Math.cos(rx),sinx=Math.sin(rx),cosy=Math.cos(ry),siny=Math.sin(ry);
+    const proj=pts.map(([x,y,z])=>{
+      let X=x*cosy+z*siny, Z=-x*siny+z*cosy, Y=y*cosx-Z*sinx; Z=y*sinx+Z*cosx;
+      const d=3.2/(3.2+Z); return [cx+X*S*d, cy+Y*S*d, Z];});
+    quads.map(q=>({q,z:(proj[q[0]][2]+proj[q[1]][2]+proj[q[2]][2]+proj[q[3]][2])/4}))
+      .sort((a,b)=>b.z-a.z).forEach(({q,z})=>{
+        const l=Math.max(.25,Math.min(1,.68-z*.5));
+        ctx.beginPath();q.forEach((pi,k)=>{const p=proj[pi];k?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]);});ctx.closePath();
+        ctx.fillStyle=`rgba(${215*l+30},${222*l+28},${232*l+20},.97)`;ctx.fill();
+        ctx.strokeStyle='rgba(120,150,180,.25)';ctx.stroke();});
+    vAnim=requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+render();
+</script>
+</body>
+</html>
