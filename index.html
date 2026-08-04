@@ -218,7 +218,7 @@ const RETRO=[['Ajuste de contacto',9],['Color no corresponde',6],['Ajuste de ocl
 const SCORE=CLINICS.map((c,i)=>({clinic:c,cases:[38,31,27,22,17,12][i],complete:[97,92,88,95,79,84][i],appr:[3.1,4.8,5.9,2.4,11.2,7.5][i],rework:[1.2,2.1,3.4,0.9,5.8,4.1][i]}));
 
 /* ═══════════ ESTADO ═══════════ */
-const state={role:'gerencia', gerTab:'resumen', mailSel:'m1', comTab:'ingreso', chatSel:0, playing:null};
+const state={role:'gerencia', gerTab:'resumen', prodTab:'tablero', mailSel:'m1', comTab:'ingreso', chatSel:0, playing:null};
 /* Control fotográfico: al salir de estas fases se exige foto de evidencia */
 const PHOTO_STEPS=[['fresado','Salida de fresado'],['sinterizado','Salida de horno'],['terminacion','Terminación'],['control','Envoltorio'],['despacho','Despacho']];
 const PHOTO_DESC={sinterizado:'salida del horno · sin fracturas',terminacion:'terminación',control:'envoltorio',despacho:'despacho entregado'};
@@ -387,8 +387,103 @@ function drawCharts(){
 
 /* ═══════════ VISTA PRODUCCIÓN (KANBAN) ═══════════ */
 function vProduccion(){
+  const tabs=[['tablero','🗂 Tablero · jefe'],['dis','✏️ Diseñador'],['tec','🔧 Técnico de taller'],['cal','✅ Control de calidad'],['des','🛵 Despacho']];
   return `
-  <div class="view-title"><h1>Tablero de producción</h1><p>Los estados los mueven los hechos: escaneo de QR, archivo subido, aprobación del doctor</p></div>
+  <div class="view-title"><h1>Producción</h1><p>Cada involucrado ve solo lo suyo — y su acción mueve el estado sin tipear nada</p></div>
+  <div class="subtabs">${tabs.map(([id,l])=>`<button class="${state.prodTab===id?'active':''}" onclick="state.prodTab='${id}';render()">${l}</button>`).join('')}</div>
+  ${state.prodTab==='dis'?vDisenador():state.prodTab==='tec'?vTecnico():state.prodTab==='cal'?vCalidad():state.prodTab==='des'?vDespacho():vTableroJefe()}`;
+}
+function persona(icon,name,desc){
+  return `<div class="card" style="display:flex;gap:12px;align-items:center;margin-bottom:14px;padding:12px 16px">
+    <div style="font-size:26px">${icon}</div><div><b>${name}</b><div style="color:var(--ink-2);font-size:12.5px">${desc}</div></div></div>`;
+}
+function phone(inner){
+  return `<div style="max-width:390px;margin:0 auto;border:10px solid #1c1c1e;border-radius:34px;overflow:hidden;background:var(--surface);box-shadow:var(--shadow)">
+    <div style="background:#1c1c1e;color:#fff;text-align:center;font-size:10px;padding:3px">📶 celular del taller — llegó aquí escaneando el QR de la cubeta</div>
+    <div style="padding:14px;max-height:560px;overflow-y:auto">${inner}</div></div>`;
+}
+function openCamera(label,onDone){
+  window.__camCb=onDone;
+  $('#modals').innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:380px;background:#101418;color:#fff;text-align:center">
+    <p style="margin:0 0 10px;font-size:13px;color:#9fb2c5">Foto de control obligatoria</p>
+    <div style="border:2px dashed #3a4a5a;border-radius:14px;height:230px;display:grid;place-items:center;font-size:64px;background:radial-gradient(circle at 50% 45%,#25303c,#141a21)">🦷</div>
+    <p style="font-size:13px;margin:10px 0">${label}</p>
+    <button class="btn ok" style="width:100%;padding:12px" onclick="closeModal();window.__camCb&&window.__camCb()">📸 Capturar y registrar</button>
+  </div></div>`;
+}
+function advancePhoto(id){
+  const c=CASES.find(x=>x.id===id); const i=PHASES.findIndex(p=>p.id===c.phase);
+  const next=PHASES[Math.min(i+1,PHASES.length-1)];
+  openCamera(`${PHOTO_DESC[c.phase]||'evidencia de '+phName(c.phase)} · ${c.code}`,()=>{
+    c.phase=next.id; render();
+    toast(`📸 Foto guardada · ${c.code} → ${next.name} — la ejecutiva no tocó nada`);
+  });
+}
+function vDisenador(){
+  const list=CASES.filter(c=>c.phase==='diseno');
+  return persona('✏️','Rodrigo — Diseñador CAD','Su cola de diseño. Subir el archivo terminado ES el avance: no existe "marcar como listo".')+
+  `<div style="display:grid;gap:10px">${list.map(c=>`
+    <div class="card" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+      <div style="flex:1;min-width:220px">
+        <div class="code" style="font-family:ui-monospace;font-size:11px;color:var(--ink-3)">${c.code}</div>
+        <b>${c.patient}</b> · ${c.product} · pza ${c.pieces}<br>
+        <span style="color:var(--ink-2);font-size:12.5px">${c.material} ${c.shade} · ${c.clinic}</span><br>
+        <span class="chip ${tone(c.slackH)}" style="margin-top:4px">${slackTxt(c.slackH)}</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="btn" onclick="openCase('${c.id}')">Ver escaneo e indicaciones</button>
+        <button class="btn primary" onclick="(function(){const c=CASES.find(x=>x.id==='${c.id}');c.phase='aprobacion';render();toast('⬆ diseño_${c.pieces}.stl subido · ${c.code} pasó solo a Aprobación clínica y se le avisó al doctor')})()">⬆ Subir STL terminado</button>
+      </div>
+    </div>`).join('')||'<p class="card" style="color:var(--ink-3)">Cola vacía 🎉</p>'}</div>`;
+}
+function vTecnico(){
+  const list=CASES.filter(c=>['fresado','sinterizado','terminacion'].includes(c.phase));
+  return persona('🔧','Juan — Técnico de taller','Escanea el QR de la cubeta con la cámara del celular. Un toque + una foto = etapa registrada.')+
+  phone(list.map(c=>`
+    <div class="card" style="margin-bottom:10px;padding:12px">
+      <div style="font-family:ui-monospace;font-size:11px;color:var(--ink-3)">${c.code}</div>
+      <b>${c.patient}</b> · ${c.product} pza ${c.pieces}
+      <div style="margin:4px 0 8px"><span class="chip neutral">${phName(c.phase)}</span>
+        <span class="chip ${tone(c.slackH)}">${c.slackH} h</span></div>
+      <button class="btn ok" style="width:100%;padding:12px;font-size:14px" onclick="advancePhoto('${c.id}')">📸 Terminé: ${PHOTO_DESC[c.phase]||phName(c.phase)}</button>
+      <details style="margin-top:6px"><summary style="font-size:12px;color:var(--ink-3);cursor:pointer">Registrar retroceso</summary>
+        <button class="btn chg" style="width:100%;margin-top:6px" onclick="(function(){const c=CASES.find(x=>x.id==='${c.id}');const i=PHASES.findIndex(p=>p.id===c.phase);c.phase=PHASES[Math.max(i-1,0)].id;render();toast('↩ Retroceso ${c.code} · causa: ajuste de contacto — registrado con responsable')})()">↩ Volver a fase anterior (causa: ajuste)</button>
+      </details>
+    </div>`).join('')||'<p style="color:var(--ink-3)">Nada pendiente en taller 🎉</p>');
+}
+function vCalidad(){
+  const list=CASES.filter(c=>c.phase==='control');
+  return persona('✅','Patricia — Control de calidad','Checklist final + foto del envoltorio. Nada sale sin evidencia.')+
+  `<div style="display:grid;gap:10px;max-width:640px">${list.map(c=>`
+    <div class="card">
+      <div style="font-family:ui-monospace;font-size:11px;color:var(--ink-3)">${c.code}</div>
+      <b>${c.patient}</b> · ${c.product} pza ${c.pieces} · ${c.shade}
+      <div style="margin:10px 0;display:grid;gap:6px;font-size:13px">
+        ${['Sin fracturas ni burbujas','Color corresponde a la orden ('+c.shade+')','Ajuste verificado en modelo','Grabado/lote legible'].map(x=>`<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" checked>${x}</label>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn ok" style="flex:1" onclick="advancePhoto('${c.id}')">📸 Foto envoltorio + aprobar a Despacho</button>
+        <button class="btn chg" onclick="(function(){const c=CASES.find(x=>x.id==='${c.id}');c.phase='terminacion';render();toast('↩ Devuelto a Terminación · causa: color no corresponde')})()">Devolver</button>
+      </div>
+    </div>`).join('')||'<p class="card" style="color:var(--ink-3)">Nada esperando control 🎉</p>'}</div>`;
+}
+function vDespacho(){
+  const list=CASES.filter(c=>c.phase==='despacho'&&!c.delivered);
+  const done=CASES.filter(c=>c.delivered);
+  return persona('🛵','Miguel — Despacho','Su ruta del día. Entregar = foto + firma; el caso se cierra y el DTE se emite solo en Bsale.')+
+  phone(`
+    <p style="font-size:12px;color:var(--ink-3);margin:0 0 8px">Ruta de hoy · ${list.length} entregas</p>
+    ${list.map(c=>`
+    <div class="card" style="margin-bottom:10px;padding:12px">
+      <b>${c.clinic}</b>
+      <div style="font-size:12.5px;color:var(--ink-2)">${c.code} · ${c.patient} · ${c.product}</div>
+      <button class="btn ok" style="width:100%;padding:12px;margin-top:8px" onclick="openCamera('entrega en ${c.clinic} · firma de recepción',(function(id){return function(){const c=CASES.find(x=>x.id===id);c.delivered=true;render();toast('✓ Entregado en '+c.clinic+' · caso cerrado · DTE folio F-88'+Math.floor(Math.random()*90+10)+' emitido en Bsale')}})('${c.id}'))">📸 Entregar (foto + firma)</button>
+    </div>`).join('')||'<p style="color:var(--ink-3)">Ruta completa 🎉</p>'}
+    ${done.length?`<p style="font-size:12px;color:var(--ok);margin:6px 0 0">✓ ${done.length} entregado(s) hoy · DTE emitido</p>`:''}
+  `);
+}
+function vTableroJefe(){
+  return `
   <div class="kanban-bar">
     <button class="btn primary" id="playBtn" onclick="togglePlay()">▶ Simular un día de trabajo</button>
     <button class="btn" onclick="toast('Etiquetas QR enviadas a la impresora 🖨️')">Imprimir etiquetas QR</button>
