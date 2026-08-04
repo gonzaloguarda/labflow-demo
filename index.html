@@ -430,8 +430,9 @@ function vDisenador(){
         <span style="color:var(--ink-2);font-size:12.5px">${c.material} ${c.shade} · ${c.clinic}</span><br>
         <span class="chip ${tone(c.slackH)}" style="margin-top:4px">${slackTxt(c.slackH)}</span>
       </div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        <button class="btn" onclick="openCase('${c.id}')">Ver escaneo e indicaciones</button>
+      <div style="display:flex;flex-direction:column;gap:6px;min-width:250px">
+        <button class="btn" onclick="toast('⬇ Descargando escaneo_intraoral.stl (28,1 MB) desde el expediente — llegó con la orden, nadie lo anduvo buscando en correos')">⬇ escaneo_intraoral.stl · 28 MB</button>
+        <button class="btn" onclick="openCase('${c.id}')">Ver indicaciones del doctor</button>
         <button class="btn primary" onclick="(function(){const c=CASES.find(x=>x.id==='${c.id}');c.phase='aprobacion';render();toast('⬆ diseño_${c.pieces}.stl subido · ${c.code} pasó solo a Aprobación clínica y se le avisó al doctor')})()">⬆ Subir STL terminado</button>
       </div>
     </div>`).join('')||'<p class="card" style="color:var(--ink-3)">Cola vacía 🎉</p>'}</div>`;
