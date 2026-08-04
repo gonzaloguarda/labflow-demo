@@ -218,7 +218,10 @@ const RETRO=[['Ajuste de contacto',9],['Color no corresponde',6],['Ajuste de ocl
 const SCORE=CLINICS.map((c,i)=>({clinic:c,cases:[38,31,27,22,17,12][i],complete:[97,92,88,95,79,84][i],appr:[3.1,4.8,5.9,2.4,11.2,7.5][i],rework:[1.2,2.1,3.4,0.9,5.8,4.1][i]}));
 
 /* ═══════════ ESTADO ═══════════ */
-const state={role:'gerencia', mailSel:'m1', comTab:'ingreso', chatSel:0, playing:null};
+const state={role:'gerencia', gerTab:'resumen', mailSel:'m1', comTab:'ingreso', chatSel:0, playing:null};
+/* Control fotográfico: al salir de estas fases se exige foto de evidencia */
+const PHOTO_STEPS=[['fresado','Salida de fresado'],['sinterizado','Salida de horno'],['terminacion','Terminación'],['control','Envoltorio'],['despacho','Despacho']];
+const PHOTO_DESC={sinterizado:'salida del horno · sin fracturas',terminacion:'terminación',control:'envoltorio',despacho:'despacho entregado'};
 const $=s=>document.querySelector(s);
 const tone=h=>h<4?'crit':h<24?'warn':'ok';
 const toneName={ok:'var(--ok)',warn:'var(--s4)',crit:'#e34948'};
@@ -238,15 +241,88 @@ function render(){
   renderTabs();
   if(state.playing && state.role!=='produccion'){clearInterval(state.playing);state.playing=null;}
   $('#app').innerHTML = state.role==='gerencia'?vGerencia():state.role==='produccion'?vProduccion():vComercial();
-  if(state.role==='gerencia') drawCharts();
+  if(state.role==='gerencia'&&state.gerTab==='resumen') drawCharts();
   if(state.role==='produccion') bindKanban();
 }
 
 /* ═══════════ VISTA GERENCIA ═══════════ */
 function vGerencia(){
+  const tabs=[['resumen','📊 Resumen'],['fact','🧾 Facturación · Bsale'],['alm','💾 Respaldo técnico']];
+  return `
+  <div class="view-title"><h1>Panel de gerencia</h1><p>Laboratorio Demo · agosto 2026</p></div>
+  <div class="subtabs">${tabs.map(([id,l])=>`<button class="${state.gerTab===id?'active':''}" onclick="state.gerTab='${id}';render()">${l}</button>`).join('')}</div>
+  ${state.gerTab==='fact'?vFacturacion():state.gerTab==='alm'?vAlmacen():vGerResumen()}`;
+}
+function vFacturacion(){
+  const rows=[
+    ['LAB-2026-4801','Clínica Los Leones','F-8841','$186.000','pagado'],
+    ['LAB-2026-4805','Odontología Vitacura','F-8846','$412.500','pagado'],
+    ['LAB-2026-4808','Centro Dental Alameda','F-8852','$95.000','pendiente'],
+    ['LAB-2026-4809','Clínica Andes Salud','F-8853','$248.000','pendiente'],
+    ['LAB-2026-4796','Clínica Sonrisa Sur','F-8812','$164.000','vencido'],
+    ['LAB-2026-4811','Centro Ñuñoa Dental','F-8858','$78.500','pagado'],
+  ];
+  const chip=s=>s==='pagado'?'ok':s==='pendiente'?'warn':'crit';
+  return `
+  <div class="tiles">
+    <div class="tile"><div class="v num">$18,4M</div><div class="l">Facturado en agosto</div><div class="d up">▲ 12% vs julio</div></div>
+    <div class="tile"><div class="v num">$5,2M</div><div class="l">Por cobrar</div></div>
+    <div class="tile"><div class="v num">214</div><div class="l">DTEs emitidos el mes</div></div>
+    <div class="tile"><div class="v num">0 min</div><div class="l">Tiempo de la ejecutiva facturando</div><div class="d up">automático</div></div>
+  </div>
+  <div class="card" style="margin-bottom:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--warn-bg);border-color:#ecd9a8">
+    <b style="color:var(--warn)">⚠ Conciliación: 2 despachos de ayer aún sin documento emitido</b>
+    <button class="btn" onclick="toast('DTE folio F-8859 y F-8860 emitidos en Bsale ✓ · enviados al SII')">Emitir ahora</button>
+  </div>
+  <div class="card">
+    <h3>Documentos tributarios <span class="chip ia" style="margin-left:8px">Bsale conectado ✓ · DTE electrónico SII</span></h3>
+    <p class="sub">El DTE se emite solo cuando el motoboy escanea la entrega; el webhook de pago de Bsale concilia automático.</p>
+    <table><thead><tr><th>Caso</th><th>Clínica</th><th>Folio</th><th class="num">Monto</th><th>Estado</th></tr></thead>
+    <tbody>${rows.map(([c,cl,f,m,s])=>`<tr>
+      <td style="font-family:ui-monospace;font-size:12px;font-weight:600">${c}</td><td>${cl}</td>
+      <td style="font-family:ui-monospace">${f}</td><td class="num">${m}</td>
+      <td><span class="chip ${chip(s)}">${s}</span></td></tr>`).join('')}</tbody></table>
+  </div>`;
+}
+function vAlmacen(){
+  return `
+  <div class="tiles">
+    <div class="tile"><div class="v num">2,38 TB</div><div class="l">Almacenamiento total</div><div class="d up">▲ 118 GB/mes</div></div>
+    <div class="tile"><div class="v num">41.230</div><div class="l">Archivos STL (5–50 MB c/u)</div></div>
+    <div class="tile"><div class="v num">18.410</div><div class="l">Fotos de control de fase</div></div>
+    <div class="tile"><div class="v num">US$ 43</div><div class="l">Costo cloud mensual</div><div class="d up">sin servidores propios</div></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>Dónde viven los archivos</h3>
+      <p class="sub">Cloudflare R2 con ciclo de vida automático: lo reciente a mano, lo histórico en frío (10× más barato)</p>
+      <div style="display:flex;flex-direction:column;gap:8px;font-size:13px">
+        ${[['🖥️ Escáner de la clínica','el STL entra por la app, nunca por correo'],
+           ['🔥 Almacenamiento caliente','primeros 90 días · descarga inmediata para diseño y visor 3D'],
+           ['🧊 Almacenamiento frío','desde el día 91 · recuperable en minutos si se necesita'],
+           ['📜 Retención 10 años','trazabilidad de dispositivo a medida (norma ISP) con lote y ciclo de horno']]
+          .map(([a,b],i)=>`<div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="width:22px;text-align:center">${a.split(' ')[0]}</div>
+            <div><b>${a.slice(a.indexOf(' ')+1)}</b><div style="color:var(--ink-2)">${b}</div></div></div>
+            ${i<3?'<div style="margin-left:10px;color:var(--ink-3)">↓</div>':''}`).join('')}
+      </div>
+    </div>
+    <div class="card">
+      <h3>Respaldo y continuidad</h3>
+      <p class="sub">Lo que responde "¿y si se cae / se pierde / me quiero cambiar?"</p>
+      ${[['Respaldo diario de la base de datos','hoy 02:00 ✓'],
+         ['Restauración probada (no solo confiada)','verificada 03-08-2026 ✓'],
+         ['Archivos replicados en 2 regiones','activo ✓'],
+         ['Exportación completa en formato abierto','1 click, sin permiso de nadie ✓'],
+         ['Historial inmutable de cada caso','ni el administrador puede borrarlo ✓']]
+        .map(([a,b])=>`<div class="fieldrow"><span>${a}</span><b style="color:var(--ok)">${b}</b></div>`).join('')}
+      <p style="font-size:12px;color:var(--ink-3);margin:12px 0 0">A diferencia del software actual, sus datos nunca quedan atrapados: la exportación total es un derecho del laboratorio, no un trámite.</p>
+    </div>
+  </div>`;
+}
+function vGerResumen(){
   const active=CASES.filter(c=>c.phase!=='despacho').length;
   return `
-  <div class="view-title"><h1>Panel de gerencia</h1><p>Laboratorio Demo · julio 2026</p></div>
   <div class="tiles">
     <div class="tile"><div class="v num">3.4</div><div class="l">Toques manuales por caso</div><div class="d up">▼ 81% vs. inicio</div></div>
     <div class="tile"><div class="v num">96.4%</div><div class="l">Entregas a tiempo</div><div class="d up">▲ 11 pts</div></div>
@@ -321,6 +397,7 @@ function vProduccion(){
       <span><span class="dot" style="background:var(--s4)"></span>4–24 h</span>
       <span><span class="dot" style="background:#e34948"></span>&lt;4 h o atrasado</span>
       <span style="color:var(--ink-3)">· color por holgura, nunca por prioridad</span>
+      <span>📸 cada cambio de fase exige foto de control</span>
     </div>
   </div>
   <div class="kanban" id="kanban">${PHASES.map(ph=>{
@@ -380,7 +457,8 @@ function togglePlay(){
     } else {
       c.phase=PHASES[Math.min(i+1,PHASES.length-1)].id; render(); flash(c.id,'pulse');
       const src=['técnico escaneó QR','diseñador subió archivo','doctor aprobó por WhatsApp','motoboy confirmó entrega'];
-      toast(`${c.code} → ${phName(c.phase)} · ${src[Math.floor(Math.random()*src.length)]}`);
+      const foto=PHOTO_DESC[c.phase]?` · 📸 foto de ${PHOTO_DESC[c.phase]}`:'';
+      toast(`${c.code} → ${phName(c.phase)} · ${src[Math.floor(Math.random()*src.length)]}${foto}`);
     }
     if(state.playing) $('#playBtn').textContent='⏸ Pausar simulación';
   },1500);
@@ -511,6 +589,16 @@ function openCase(id){
       <div class="tile"><div class="l">Trabajo</div><b>${c.product}</b><div class="l">${c.material} · ${c.shade} · pza ${c.pieces}</div></div>
       <div class="tile"><div class="l">Fase actual</div><b>${phName(c.phase)}</b><div style="margin-top:4px"><span class="chip ${tone(c.slackH)}">${slackTxt(c.slackH)}</span></div></div>
       <div class="tile"><div class="l">Cita del paciente</div><b>${c.due}</b><div class="l">ancla inamovible</div></div>
+    </div>
+    <h3 style="font-size:13px;margin:2px 0 8px">Control fotográfico por fase — sin foto no hay avance</h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      ${PHOTO_STEPS.map(([ph,label])=>{
+        const ci=PHASES.findIndex(x=>x.id===c.phase), pi=PHASES.findIndex(x=>x.id===ph);
+        const done=ci>pi, current=ci===pi;
+        return `<div style="width:104px;border-radius:10px;overflow:hidden;border:1.5px ${done?'solid var(--ok)':current?'solid var(--s4)':'dashed var(--line)'}">
+          <div style="height:58px;display:grid;place-items:center;font-size:22px;background:${done?'linear-gradient(135deg,#dce9f8,#eef4fb)':'#f5f4f1'}">${done?'🦷':current?'⏳':'·'}</div>
+          <div style="padding:4px 6px;font-size:10px;line-height:1.25;text-align:center;color:${done?'var(--ok)':'var(--ink-3)'};font-weight:600">${label}${done?' ✓':current?' — pendiente':''}</div>
+        </div>`;}).join('')}
     </div>
     <div class="grid2">
       <div><h3 style="font-size:13px;margin-bottom:10px">Historial — nada se edita, todo queda</h3>
