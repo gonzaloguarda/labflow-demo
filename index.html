@@ -226,6 +226,12 @@ const CHANNELS=[
   ['💬','WhatsApp','fotos e indicaciones al número del lab',1],
   ['🦷','Análogo','impresión física → vaciado → se escanea en el lab',1],
 ];
+/* Escenario de lote GARANTIZADO para la demo: una A2 multicapa en fresado
+   y tres más del mismo disco viniendo en camino */
+;[[9,'fresado'],[4,'diseno'],[6,'aprobacion'],[1,'recepcion']].forEach(([i,ph])=>{
+  CASES[i].material='Zirconio multicapa';CASES[i].shade='A2';CASES[i].phase=ph;
+  if(CASES[i].slackH<26)CASES[i].slackH=30+i;
+});
 const MAILS=[
   {id:'m1',from:'Dra. Herrera — Odontología Vitacura',subject:'Orden: corona pieza 16',conf:96,src:'☁️ Medit Link',
    body:'Estimados, adjunto escaneo de paciente Marcela Pino para corona monolítica en pieza 16, zirconio multicapa color A2. La paciente tiene cita el viernes 8 de agosto a las 10:30. Saludos.',
@@ -469,15 +475,21 @@ function vDisenador(){
 }
 function vTecnico(){
   const list=CASES.filter(c=>['fresado','sinterizado','terminacion'].includes(c.phase));
-  /* sugerencia de lote: mismo material+color en fresado vs. en camino */
-  const inMill=CASES.filter(c=>c.phase==='fresado'&&c.material.includes('multicapa'));
-  const coming=CASES.filter(c=>['recepcion','diseno','aprobacion'].includes(c.phase)&&c.material.includes('multicapa')&&c.shade==='A2');
-  const loteCard=inMill.length&&coming.length?`
+  /* sugerencia de lote: agrupar por material+color lo que está en fresado
+     vs. lo que viene en camino, y mostrar el mejor grupo */
+  const grp={};
+  CASES.forEach(c=>{if(c.delivered)return;const k=`${c.material} ${c.shade}`;
+    grp[k]=grp[k]||{mill:[],coming:[]};
+    if(c.phase==='fresado')grp[k].mill.push(c);
+    else if(['recepcion','diseno','aprobacion'].includes(c.phase))grp[k].coming.push(c);});
+  const best=Object.entries(grp).filter(([,g])=>g.mill.length&&g.coming.length)
+    .sort((a,b)=>b[1].coming.length-a[1].coming.length)[0];
+  const loteCard=best?`
     <div class="card" style="margin-bottom:10px;padding:12px;background:#eef6ff;border-color:#c4dcf5">
-      <b style="font-size:13px">🧠 Sugerencia de lote — Zirconio multicapa A2</b>
+      <b style="font-size:13px">🧠 Sugerencia de lote — ${best[0]}</b>
       <div style="font-size:12px;color:var(--ink-2);margin-top:3px">
-        Tienes <b>${inMill.length}</b> lista(s) para fresar y vienen <b>${coming.length}</b> más del mismo disco en camino (~4 h).
-        La holgura alcanza (la más apretada queda con 22 h): <b>espéralas y frésalas en un solo disco</b>.</div>
+        Tienes <b>${best[1].mill.length}</b> lista(s) para fresar y vienen <b>${best[1].coming.length}</b> más del mismo disco en camino (~4 h).
+        La holgura alcanza (la más apretada queda con ${Math.min(...best[1].mill.map(c=>c.slackH))-4} h): <b>espéralas y frésalas en un solo disco</b>.</div>
       <div style="font-size:11px;color:var(--ink-3);margin-top:4px">El sistema avisa; la decisión es tuya.</div>
     </div>`:'';
   return persona('🔧','Juan — Técnico de taller','Escanea el QR de la cubeta con la cámara del celular. Un toque + una foto = etapa registrada.')+
