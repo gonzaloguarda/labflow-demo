@@ -469,8 +469,19 @@ function vDisenador(){
 }
 function vTecnico(){
   const list=CASES.filter(c=>['fresado','sinterizado','terminacion'].includes(c.phase));
+  /* sugerencia de lote: mismo material+color en fresado vs. en camino */
+  const inMill=CASES.filter(c=>c.phase==='fresado'&&c.material.includes('multicapa'));
+  const coming=CASES.filter(c=>['recepcion','diseno','aprobacion'].includes(c.phase)&&c.material.includes('multicapa')&&c.shade==='A2');
+  const loteCard=inMill.length&&coming.length?`
+    <div class="card" style="margin-bottom:10px;padding:12px;background:#eef6ff;border-color:#c4dcf5">
+      <b style="font-size:13px">🧠 Sugerencia de lote — Zirconio multicapa A2</b>
+      <div style="font-size:12px;color:var(--ink-2);margin-top:3px">
+        Tienes <b>${inMill.length}</b> lista(s) para fresar y vienen <b>${coming.length}</b> más del mismo disco en camino (~4 h).
+        La holgura alcanza (la más apretada queda con 22 h): <b>espéralas y frésalas en un solo disco</b>.</div>
+      <div style="font-size:11px;color:var(--ink-3);margin-top:4px">El sistema avisa; la decisión es tuya.</div>
+    </div>`:'';
   return persona('🔧','Juan — Técnico de taller','Escanea el QR de la cubeta con la cámara del celular. Un toque + una foto = etapa registrada.')+
-  phone(list.map(c=>`
+  phone(loteCard+list.map(c=>`
     <div class="card" style="margin-bottom:10px;padding:12px">
       <div style="font-family:ui-monospace;font-size:11px;color:var(--ink-3)">${c.code}</div>
       <b>${c.patient}</b> · ${c.product} pza ${c.pieces}
