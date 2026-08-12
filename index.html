@@ -138,12 +138,35 @@
   .subtabs button{border:1px solid var(--line);background:#fff;border-radius:99px;padding:6px 14px;color:var(--ink-2);font-weight:550}
   .subtabs button.active{background:var(--ink);border-color:var(--ink);color:#fff}
   .tooltip{position:fixed;background:var(--ink);color:#fff;font-size:11.5px;border-radius:8px;padding:5px 9px;pointer-events:none;z-index:90;white-space:nowrap}
+
+  /* ── Recorrido guiado ─────────────────────────────────────────── */
+  .tour-btn{background:linear-gradient(135deg,var(--brand),#5e97e0);border:0;color:#fff;border-radius:99px;padding:7px 16px;font-weight:650;font-size:13px}
+  .tour-btn:hover{filter:brightness(1.06)}
+  .tour{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:55;width:min(700px,94vw);
+    background:#141619;color:#fff;border-radius:18px;padding:16px 18px;box-shadow:0 18px 60px rgba(0,0,0,.4);animation:tin .3s}
+  .tour .step-chip{font-size:11px;font-weight:700;letter-spacing:.06em;color:#8fb4e8;text-transform:uppercase}
+  .tour h4{margin:4px 0 6px;font-size:15px}
+  .tour p{margin:0;font-size:13px;line-height:1.55;color:#c9cdd4}
+  .tour p b{color:#fff}
+  .tour .bar{display:flex;gap:8px;align-items:center;margin-top:12px}
+  .tour .bar .spacer{flex:1}
+  .tour button{border:0;border-radius:9px;padding:8px 16px;font-weight:600;font-size:13px}
+  .tour .nxt{background:var(--brand);color:#fff} .tour .nxt:hover{background:var(--brand-ink)}
+  .tour .prv{background:#2a2e33;color:#cfd3d9} .tour .exit{background:transparent;color:#8a8f96}
+  .tour .dots{display:flex;gap:4px}
+  .tour .dots i{width:6px;height:6px;border-radius:99px;background:#3a3f45}
+  .tour .dots i.on{background:var(--brand)}
+  .channels{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .channel{display:flex;gap:8px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:12.5px}
+  .channel b{display:block;font-size:12.5px}
+  .channel small{color:var(--ink-3)}
 </style>
 </head>
 <body>
 
 <div class="topbar"><div class="topbar-in">
   <div class="logo"><div class="logo-mark">L</div> LabFlow <span class="demo-chip">Demo</span></div>
+  <button class="tour-btn" onclick="startTour()">▶ Recorrido guiado</button>
   <div class="roles" id="roleTabs"></div>
   <div class="who" id="who"></div>
 </div></div>
@@ -196,14 +219,21 @@ NAMES.forEach((n,i)=>{
     due: 'vie 8 ago, '+(9+Math.floor(rnd()*8))+':'+pick(['00','30']),
   });
 });
+const CHANNELS=[
+  ['☁️','Medit Link','el escáner sube a su nube y aterriza aquí solo',2],
+  ['☁️','3Shape TRIOS','conexión directa Communicate',1],
+  ['📧','Correo','la IA lee y extrae la orden',3],
+  ['💬','WhatsApp','fotos e indicaciones al número del lab',1],
+  ['🦷','Análogo','impresión física → vaciado → se escanea en el lab',1],
+];
 const MAILS=[
-  {id:'m1',from:'Dra. Herrera — Odontología Vitacura',subject:'Orden: corona pieza 16',conf:96,
+  {id:'m1',from:'Dra. Herrera — Odontología Vitacura',subject:'Orden: corona pieza 16',conf:96,src:'☁️ Medit Link',
    body:'Estimados, adjunto escaneo de paciente Marcela Pino para corona monolítica en pieza 16, zirconio multicapa color A2. La paciente tiene cita el viernes 8 de agosto a las 10:30. Saludos.',
    parsed:{Paciente:'Marcela Pino',Clínica:'Odontología Vitacura',Producto:'Corona monolítica',Material:'Zirconio multicapa',Color:'A2',Piezas:'16 (FDI)',Cita:'vie 8 ago, 10:30'}},
-  {id:'m2',from:'Dr. Lagos — Clínica Andes Salud',subject:'Puente 24 al 26 urgente',conf:88,
+  {id:'m2',from:'Dr. Lagos — Clínica Andes Salud',subject:'Puente 24 al 26 urgente',conf:88,src:'☁️ TRIOS',
    body:'Junto con saludar, necesito puente de 24 a 26 en zirconio para el paciente José Aravena. Color B2. Control el miércoles 6 en la tarde.',
    parsed:{Paciente:'José Aravena',Clínica:'Clínica Andes Salud',Producto:'Puente 3 piezas',Material:'Zirconio multicapa',Color:'B2',Piezas:'24-26 (FDI)',Cita:'mié 6 ago, 16:00'}},
-  {id:'m3',from:'recepcion@sonrisasur.cl',subject:'RV: trabajo protésico',conf:64,
+  {id:'m3',from:'recepcion@sonrisasur.cl',subject:'RV: trabajo protésico',conf:64,src:'📧 Correo',
    body:'Reenvío indicación del doctor: "prótesis para la Sra. Carrasco, la vemos a fin de mes". Sin más detalle. Quedo atenta.',
    parsed:{Paciente:'Sra. Carrasco',Clínica:'Clínica Sonrisa Sur',Producto:'(por confirmar)',Material:'(por confirmar)',Color:'—',Piezas:'—',Cita:'(por confirmar)'}},
 ];
@@ -574,9 +604,12 @@ function vIngreso(){
   const m=MAILS.find(x=>x.id===state.mailSel)||MAILS[0];
   return `<div class="grid2">
     <div>
-      <div class="card" style="margin-bottom:12px"><h3>Buzón de órdenes</h3><p class="sub">Correos y WhatsApp entrantes, leídos por la IA — la ejecutiva revisa, no transcribe</p>
+      <div class="card" style="margin-bottom:12px"><h3>¿De dónde llegan los trabajos?</h3><p class="sub">Todos los canales aterrizan en la misma bandeja — se acabó reconciliar correo, WhatsApp y carpeta de red</p>
+        <div class="channels">${CHANNELS.map(([i,n,d,k])=>`<div class="channel"><span style="font-size:18px">${i}</span><div><b>${n} <span class="chip neutral" style="font-size:10px;padding:0 6px">${k} hoy</span></b><small>${d}</small></div></div>`).join('')}</div>
+      </div>
+      <div class="card" style="margin-bottom:12px"><h3>Buzón de órdenes</h3><p class="sub">Leídas por la IA — la ejecutiva revisa, no transcribe</p>
       ${MAILS.map(x=>`<div class="mail ${x.id===state.mailSel?'sel':''}" onclick="state.mailSel='${x.id}';render()">
-        <div style="flex:1"><div class="from">${x.from}</div><div class="snip">${x.body}</div></div>
+        <div style="flex:1"><div class="from">${x.from} ${x.src?`<span class="chip neutral" style="margin-left:6px;font-size:10px">${x.src}</span>`:''}</div><div class="snip">${x.body}</div></div>
         <span class="chip ${x.conf>=75?'ia':'warn'}" style="align-self:flex-start;flex:none">IA ${x.conf}%${x.conf<75?' · revisar':''}</span>
       </div>`).join('')}</div>
     </div>
@@ -769,6 +802,74 @@ function startViewer(){
     vAnim=requestAnimationFrame(frame);
   }
   frame();
+}
+
+/* ═══════════ RECORRIDO GUIADO (modo venta) ═══════════ */
+let tourCase=null;
+function tc(){return CASES.find(x=>x.id==='tour1');}
+const TOUR=[
+ {t:'Un trabajo, de principio a fin',w:'La historia',
+  x:'Vamos a seguir <b>una corona real</b> desde que la clínica la pide hasta que se factura. Fíjese en una sola cosa: <b>nadie del laboratorio va a tipear un estado ni a transcribir un dato</b> en todo el recorrido.',
+  a:()=>{state.role='comercial';state.comTab='ingreso';render();}},
+ {t:'El trabajo llega solo, venga de donde venga',w:'Paso 1 · Ingreso',
+  x:'El STL llega desde <b>la nube del escáner</b> (Medit Link, 3Shape TRIOS), por <b>correo</b>, por <b>WhatsApp</b>, o en <b>análogo</b>: la impresión física se recibe, se vacía y se escanea en el laboratorio. Todos los canales caen en <b>esta misma bandeja</b> — se acabó buscar en tres lugares.',
+  a:()=>{state.role='comercial';state.comTab='ingreso';render();}},
+ {t:'La IA lee la orden; la ejecutiva solo revisa',w:'Paso 2 · Extracción',
+  x:'La orden de la Dra. Herrera llegó desde Medit Link. La IA ya extrajo paciente, producto, color, pieza y fecha de cita con <b>96% de confianza</b>. Si la confianza es baja, va a revisión humana precargada — <b>nunca se descarta ni se transcribe de nuevo</b>.',
+  a:()=>{state.role='comercial';state.comTab='ingreso';state.mailSel='m1';render();}},
+ {t:'Nace el caso — y su etiqueta QR',w:'Paso 3 · El caso',
+  x:'Un click y nace el caso: asignado automáticamente a la ejecutiva de la cartera, con su <b>expediente único</b> (datos, archivos, WhatsApp, historial). Se imprime la <b>etiqueta QR</b> y se pega en la cubeta: <b>ese QR va a acompañar al trabajo por todo el taller</b>.',
+  a:()=>{if(!tc()){CASES.push({id:'tour1',code:'LAB-2026-4901',patient:'M. Paz Soto',clinic:'Odontología Vitacura',doctor:'Dra. Herrera',product:'Corona monolítica',material:'Zirconio multicapa',shade:'A2',pieces:'16',phase:'diseno',slackH:58,exec:'Valentina M.',due:'vie 15 ago, 10:30'});}
+     state.role='produccion';state.prodTab='tablero';render();flash('tour1','pulse');toast('🖨️ Etiqueta QR impresa y pegada en la cubeta de LAB-2026-4901');}},
+ {t:'El diseñador no busca archivos: los tiene',w:'Paso 4 · Diseño',
+  x:'Rodrigo abre su cola y <b>descarga el escaneo directo del expediente</b> — nadie se lo reenvió por correo. Diseña en su CAD y al <b>subir el STL terminado, el caso avanza solo</b> y se le avisa al doctor. Subir el archivo ES el evento; no existe "marcar como listo".',
+  a:()=>{state.role='produccion';state.prodTab='dis';render();}},
+ {t:'El doctor aprueba desde WhatsApp en 30 segundos',w:'Paso 5 · Aprobación',
+  x:'La Dra. Herrera recibe el link por WhatsApp: ve el diseño en <b>3D</b>, la cita de su paciente y la <b>hora límite para llegar a tiempo</b> (calculada por el motor de holgura). Si no responde, la <b>escalera automática</b> insiste a las 4 h, a las 24 h le habla de SU agenda, y a las 48 h recién escala a la ejecutiva. <i>Pruebe rotar la corona y apriete Aprobar.</i>',
+  a:()=>{const c=tc();if(c)c.phase='aprobacion';const i=CASES.indexOf(tc());openDoctor(i);}},
+ {t:'El QR en acción: así se mueve el taller',w:'Paso 6 · Taller',
+  x:'Aprobada, la corona entra a fresado. Desde aquí el ritual es siempre el mismo: <b>el técnico apunta la cámara del celular al QR de la cubeta</b> → se abre la pantalla de ESE caso → un toque registra la etapa terminada. Sin computadores en el taller, sin planillas, sin gritar "¿en qué va la 4901?".',
+  a:()=>{closeModal();const c=tc();if(c&&['aprobacion','diseno'].includes(c.phase))c.phase='fresado';state.role='produccion';state.prodTab='tec';render();toast('✓ Dra. Herrera aprobó · LAB-2026-4901 entró a Fresado');}},
+ {t:'Sale del horno: foto o no avanza',w:'Paso 7 · Control fotográfico',
+  x:'El sinterizado corre de noche (el sistema lo sabe: esa fase cuenta en <b>tiempo de máquina 24/7</b>, no en horas hábiles). A la salida del horno el QR exige lo más importante: <b>una foto de la pieza sin fracturas</b>. Sin foto, el sistema no deja avanzar. <i>Apriete "Capturar" para vivirlo.</i>',
+  a:()=>{const c=tc();if(c)c.phase='sinterizado';render();
+    openCamera('salida del horno · sin fracturas · LAB-2026-4901',()=>{const c=tc();if(c)c.phase='terminacion';render();toast('📸 Foto de horno guardada en el expediente · → Terminación');});}},
+ {t:'Terminación y calidad: evidencia en cada paso',w:'Paso 8 · Calidad',
+  x:'Lo mismo en terminación (foto del acabado) y en control de calidad: <b>checklist + foto del envoltorio</b>. Si en 6 meses una clínica reclama, el expediente tiene la foto de cada etapa con fecha, hora y responsable. <b>Fin de las discusiones.</b>',
+  a:()=>{closeModal();const c=tc();if(c)c.phase='control';state.role='produccion';state.prodTab='cal';render();toast('📸 Foto de terminación guardada · → Control de calidad');}},
+ {t:'La entrega factura sola',w:'Paso 9 · Despacho + Bsale',
+  x:'Miguel ve su ruta del día en el celular. En la clínica: <b>foto + firma de recepción</b> → el caso se cierra y <b>el DTE se emite solo en Bsale</b>, directo al SII. La ejecutiva no facturó: <b>la entrega ES la factura</b>.',
+  a:()=>{const c=tc();if(c)c.phase='despacho';state.role='produccion';state.prodTab='des';render();toast('📸 Envoltorio aprobado · LAB-2026-4901 → Despacho');}},
+ {t:'El jefe lo vio todo sin preguntar',w:'Paso 10 · Tablero',
+  x:'Todo lo que acaba de pasar se movió solo en este tablero. El color es <b>holgura contra la cita del paciente</b> (verde: sobra tiempo · rojo: apurarse), nunca "prioridad" a ojo. Y si crece la cola en una fase, el jefe lo ve <b>antes</b> de que sea atraso.',
+  a:()=>{const c=tc();if(c){c.delivered=true;}state.role='produccion';state.prodTab='tablero';render();toast('✓ Entregado en Odontología Vitacura · DTE F-8861 emitido en Bsale');}},
+ {t:'Y la gerencia ve el negocio, no el caos',w:'Paso 11 · Gerencia',
+  x:'Toques manuales por caso: <b>de 18 a 3,4</b>. Entregas a tiempo: 96%. Aprobación del doctor: de 2 días a 5 horas. Más el <b>scorecard por clínica</b> que ningún competidor ofrece, la facturación Bsale y el respaldo técnico de los terabytes de STL con retención ISP.',
+  a:()=>{state.role='gerencia';state.gerTab='resumen';render();}},
+ {t:'Eso es LabFlow',w:'Cierre',
+  x:'Un trabajo completo: <b>0 transcripciones, 0 estados tipeados, 0 facturas manuales</b> — y evidencia fotográfica, tiempos reales y trazabilidad de 10 años en cada caso. El laboratorio produce; <b>el sistema administra</b>. ¿Lo recorremos de nuevo con un caso suyo?',
+  a:()=>{state.role='gerencia';state.gerTab='resumen';render();}},
+];
+let tourIdx=-1;
+function startTour(){if(state.playing)togglePlay();tourIdx=-1;tourNext();}
+function tourNext(){tourIdx++;if(tourIdx>=TOUR.length){endTour();return;}closeModal();TOUR[tourIdx].a();showTour();}
+function tourPrev(){if(tourIdx<=0)return;tourIdx--;closeModal();TOUR[tourIdx].a();showTour();}
+function endTour(){tourIdx=-1;document.getElementById('tour')?.remove();closeModal();}
+function showTour(){
+  document.getElementById('tour')?.remove();
+  const s=TOUR[tourIdx];
+  const el=document.createElement('div');el.className='tour';el.id='tour';
+  el.innerHTML=`<div class="step-chip">${s.w} · ${tourIdx+1}/${TOUR.length}</div>
+    <h4>${s.t}</h4><p>${s.x}</p>
+    <div class="bar">
+      <button class="exit" onclick="endTour()">Salir</button>
+      <div class="spacer"></div>
+      <div class="dots">${TOUR.map((_,i)=>`<i class="${i<=tourIdx?'on':''}"></i>`).join('')}</div>
+      <div class="spacer"></div>
+      ${tourIdx>0?'<button class="prv" onclick="tourPrev()">← Anterior</button>':''}
+      <button class="nxt" onclick="tourNext()">${tourIdx===TOUR.length-1?'Terminar ✓':'Siguiente →'}</button>
+    </div>`;
+  document.body.appendChild(el);
 }
 
 render();
